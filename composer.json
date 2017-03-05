@@ -1,0 +1,24 @@
+{
+	"name": "verbi/yii2-assets-auto-compress",
+	"description": "Yii2 Assets Auto Compress.",
+	"keywords": ["yii2", "extension", "assets", "auto", "compress"],
+	"type": "yii2-extension",
+	"license": "GPLv3",
+	"authors": [
+		{
+			"name": "Philip Verbist",
+			"email": "philip.verbist@gmail.com"
+		}
+	],
+	"support": {
+		"source": "https://github.com/verbi/yii2-assets-auto-compress/"
+	},
+	"autoload": {
+		"psr-4": {
+			"verbi\\yii2AssetsAutoCompress\\": "src/"
+		}
+	},
+        "require": {
+            "skeeks/yii2-assets-auto-compress": "*"
+        }
+}
