@@ -6,7 +6,7 @@
  */
 namespace verbi\yii2AssetsAutoCompress;
 
-class AssetsAutoCompressComponent extends skeeks\yii2\AssetsAutoCompressComponent
+class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoCompressComponent
 {
     protected function _processingJsFiles($files = [])
     {
