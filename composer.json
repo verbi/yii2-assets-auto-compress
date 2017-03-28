@@ -19,8 +19,15 @@
 		}
 	},
         "require": {
-            "fxp/composer-asset-plugin": "*",
             "npm-asset/uglify-js": "*",
             "skeeks/yii2-assets-auto-compress": "*"
+        },
+        "scripts": {
+            "post-install-cmd": [
+                "npm install vendor/npm/uglify-js/uglify-js"
+            ],
+            "post-update-cmd": [
+                "npm update vendor/npm/uglify-js/uglify-js"
+            ]
         }
 }
