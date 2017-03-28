@@ -19,7 +19,8 @@
 		}
 	},
         "require": {
-            "bower-asset/nprogress": "*",
+            "fxp/composer-asset-plugin": "*",
+            "npm-asset/uglify-js": "*",
             "skeeks/yii2-assets-auto-compress": "*"
         }
 }
