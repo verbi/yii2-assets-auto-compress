@@ -23,10 +23,10 @@
             "skeeks/yii2-assets-auto-compress": "*"
         },
         "scripts": {
-            "post-install-cmd": [
+            "post-package-install": [
                 "npm install vendor/npm/uglify-js/uglify-js"
             ],
-            "post-update-cmd": [
+            "post-package-update": [
                 "npm update vendor/npm/uglify-js/uglify-js"
             ]
         }
