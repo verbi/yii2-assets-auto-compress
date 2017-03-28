@@ -19,6 +19,7 @@
 		}
 	},
         "require": {
+            "bower-asset/nprogress": "*",
             "skeeks/yii2-assets-auto-compress": "*"
         }
 }
