@@ -2,38 +2,39 @@ function pjaxAssetsAutoCompressAssetLoad() {
     var pjaxDynamicScriptLoader = new PjaxDynamicScriptLoader();
     pjaxDynamicScriptLoader.loadedKeys = {};
     pjaxDynamicScriptLoader.lastLoadedKeys = {};
+    pjaxDynamicScriptLoader.getAssetsUrl = null;
 
     pjaxDynamicScriptLoader.addLoadedFiles = function (obj) {
         if (obj.jsFiles && Array.isArray(obj.jsFiles)) {
             obj.jsFiles.each(function (i, fileName) {
-                if ($.inArray(fileName, pjaxDynamicScriptLoader.loadedScripts)===-1) {
+                if ($.inArray(fileName, pjaxDynamicScriptLoader.loadedScripts) === -1) {
                     pjaxDynamicScriptLoader.loadedScripts.push(fileName);
                 }
             });
         }
-        
+
         if (obj.loadedKeys) {
-            
-            $(Object.keys(obj.loadedKeys)).each(function(i, key) {
+
+            $(Object.keys(obj.loadedKeys)).each(function (i, key) {
                 var keys = obj.loadedKeys[key];
                 if (keys && Array.isArray(keys) && keys.length) {
-                    if(!Array.isArray(pjaxDynamicScriptLoader.loadedKeys[key])) {
+                    if (!Array.isArray(pjaxDynamicScriptLoader.loadedKeys[key])) {
                         pjaxDynamicScriptLoader.loadedKeys[key] = [];
                     }
                     $(keys).each(function (j, loadKey) {
-                        if ($.inArray(key, pjaxDynamicScriptLoader.loadedKeys[key])===-1) {
+                        if ($.inArray(key, pjaxDynamicScriptLoader.loadedKeys[key]) === -1) {
                             pjaxDynamicScriptLoader.loadedKeys[key].push(loadKey);
                         }
                     });
                     pjaxDynamicScriptLoader.lastLoadedKeys = $.extend(true, pjaxDynamicScriptLoader.lastLoadedKeys, pjaxDynamicScriptLoader.loadedKeys);
                 }
             });
-            
+
         }
 
         if (obj.cssFiles && Array.isArray(obj.cssiles)) {
             obj.cssFiles.each(function (i, fileName) {
-                if ($.inArray(fileName, pjaxDynamicScriptLoader.loadedCssFile)===-1) {
+                if ($.inArray(fileName, pjaxDynamicScriptLoader.loadedCssFile) === -1) {
                     pjaxDynamicScriptLoader.loadedCssFile.push(fileName);
                 }
             });
@@ -50,33 +51,34 @@ function pjaxAssetsAutoCompressAssetLoad() {
          }
          });*/
     };
-    
+
 
     var currentEvent = pjaxDynamicScriptLoader.pjaxEndEvent;
-    
-    
-    
+
+
+
     pjaxDynamicScriptLoader.pjaxPjaxEndKeysEvent = function (e) {
         try {
-            
+
             $(e.target).find('.js-pjax-scripts').each(function (index, element) {
 
                 var positions = JSON.parse($(element).html());
-                
-                
-                if(positions.loadedKeys){
+
+                var js = pjaxDynamicScriptLoader.getJsScripts(positions);
+
+                if (positions.loadedKeys) {
                     var loadKeys = {};
                     var loadAssetSw = false;
-                    $(Object.keys(positions.loadedKeys)).each(function(i, key) {
+                    $(Object.keys(positions.loadedKeys)).each(function (i, key) {
                         var keys = positions.loadedKeys[key];
-                        
+
                         if (keys && Array.isArray(keys) && keys.length) {
-                            if(!Array.isArray(pjaxDynamicScriptLoader.loadedKeys[key])) {
+                            if (!Array.isArray(pjaxDynamicScriptLoader.loadedKeys[key])) {
                                 pjaxDynamicScriptLoader.loadedKeys[key] = [];
                             }
                             $(keys).each(function (j, loadingKey) {
-                                if ($.inArray(loadingKey, pjaxDynamicScriptLoader.loadedKeys[key])===-1) {
-                                    if(!loadKeys[key] || !Array.isArray(loadKeys[key])) {
+                                if ($.inArray(loadingKey, pjaxDynamicScriptLoader.loadedKeys[key]) === -1) {
+                                    if (!loadKeys[key] || !Array.isArray(loadKeys[key])) {
                                         loadKeys[key] = [];
                                     }
                                     loadKeys[key].push(loadingKey);
@@ -85,25 +87,47 @@ function pjaxAssetsAutoCompressAssetLoad() {
                                 }
                             });
                         }
-                        
+
                     });
-                    if(loadAssetSw) {
+                    if (loadAssetSw) {
                         var data = {
                             loadKeys: loadKeys,
                             loaded: pjaxDynamicScriptLoader.lastLoadedKeys
                         };
+
                         $.ajax({
-                            url: '',
+                            url: pjaxDynamicScriptLoader.getAssetsUrl,
                             data: data,
-                            complete: function(data) {
-                                
+                            success: function (data) {
+                                if (data.keys) {
+                                    $(Object.keys(data.keys)).each(function(i, keyType) {
+                                        pjaxDynamicScriptLoader.lastLoadedKeys[keyType] = data.keys[keyType];
+                                    });
+                                }
+                                if (data.css && Array.isArray(data.css)) {
+                                    pjaxDynamicScriptLoader.loadCssFiles(data.css);
+                                }
+                                if (data.js && Array.isArray(data.js)) {
+                                    $script(data.js, function () {
+                                        if (js) {
+                                            eval(js);
+                                        }
+                                    });
+                                }
+                                else {
+                                    eval(js);
+                                }
                             }
                         });
-                        alert(JSON.stringify(data));
-                            
+                    }
+                    else {
+                        eval(js);
                     }
                 }
-                
+                else {
+                    alert('test');
+                }
+
             });
         }
         catch (e) {
@@ -112,19 +136,8 @@ function pjaxAssetsAutoCompressAssetLoad() {
     };
 
     pjaxDynamicScriptLoader.pjaxEndEvent = function (e) {
-        currentEvent(e);
         pjaxDynamicScriptLoader.pjaxPjaxEndKeysEvent(e);
-    };
-
-    pjaxDynamicScriptLoader.loadScriptByKey = function (jsKey) {
-        alert(jsKey);
-
-
-        /*    $script(jsFiles, function () {
-         if (js) {
-         eval(js);
-         }
-         });*/
+        /*currentEvent(e);*/
     };
 }
 

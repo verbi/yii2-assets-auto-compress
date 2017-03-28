@@ -23,16 +23,21 @@ use yii\helpers\Json;
 use yii\helpers\FileHelper;
 use yii\helpers\ArrayHelper;
 use yii\base\Event;
+use yii\helpers\Inflector;
 
 class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoCompressComponent {
+    use \verbi\yii2Helpers\traits\ComponentTrait;
 
     public static $EVENT_AFTER_PROCESSING_KEYS = 'EVENT_AFTER_PROCESSING_KEYS';
     public $modelClass = '\verbi\yii2AssetsAutoCompress\models\AutoCompressAsset';
     public $saveData = true;
-    public $controllerMap = [
-        'assets-auto-compress' => 'verbi\yii2AssetsAutoCompress\controllers\AssetsAutoCompressController',
-    ];
-
+    /**
+     * Enable compression and processing js before saving a file
+     * @var bool
+     */
+    public $jsFileCompress = true;
+//    public $enabled=false;
+    
     public function bootstrap($app) {
         if ($app instanceof \yii\web\Application) {
             $compressComponent = $this;
@@ -56,9 +61,6 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
                 }
             });
             
-            
-            
-
             $app->view->on(View::EVENT_END_BODY, function(Event $e) use ($app) {
                 /**
                  * @var $view View
@@ -68,7 +70,6 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
                 if ($this->enabled && $view instanceof View && $app->response->format == Response::FORMAT_HTML && !$app->request->isAjax && !$app->request->isPjax) {
                     if ($view->getAssetManager()->bundles !== false && isset($view->getAssetManager()->bundles['verbi\yii2Helpers\widgets\assets\PjaxAsset'])) {
                         PjaxAssetsAutoCompressAsset::register($view);
-                        
                         
                         $view->on('EVENT_AFTER_PROCESSING_KEYS', function($event) use ($view) {
                             $includes = [];
@@ -82,7 +83,10 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
                                 $js = 'var dynamicScriptloader=new PjaxDynamicScriptLoader();'
                                     . 'if (typeof dynamicScriptloader.addLoadedFiles == \'function\') {'
                                         . 'dynamicScriptloader.addLoadedFiles(' . json_encode($includes) . ');'
-                                    . '}';
+                                    . '}'
+                                    . 'dynamicScriptloader.getAssetsUrl=\''
+                                    . \Yii::$app->getUrlManager()->createUrl([Inflector::camel2id($this->getComponentId()) . '/get-asset-urls'])
+                                    . '\'';
                                 $view->registerJs(new JsExpression($js));
                             }
                         });
@@ -129,10 +133,11 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
     public function loadModel($id = null) {
         $modelClass = $this->modelClass;
         if ($id !== null) {
-            $model = $modelClass::find($id)->one();
+            $model = $modelClass::find()->where($id)->one();
             if ($model !== null) {
                 return $model;
             }
+//            die(print_r($modelClass::find()->where($id),true));
         }
         $model = new $modelClass;
         $model->setAttributes($id);
@@ -170,7 +175,14 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
     }
 
     protected function _processingJsFiles($files = []) {
-        $jsFiles = parent::_processingJsFiles($files);
+        try{
+            $jsFiles = parent::_processingJsFiles($files);
+        }
+        catch(\RuntimeException $e) {
+            $this->jsFileCompress = false;
+            $jsFiles = parent::_processingJsFiles($files);
+        }
+        
         $this->saveAssetContent(array_keys($files), 'js');
         return $jsFiles;
     }
@@ -229,93 +241,109 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
 //            }
         }
 
-        //TODO: add keys to pjax (probably using an event or something)
+//        foreach ($view->assetBundles as $pos => $bundle)
+//        {
+//            if ($bundle)
+//            {
+//                $view->jsFiles[$pos] = $this->_processingJsFiles($files);
+//            }
+//        }
 
         parent::_processing($view);
     }
 
     public function _pjax_processing(Pjax $pjax) {
-        $pjax->attachBehavior(AssetsAutoCompressBehavior::className(), AssetsAutoCompressBehavior::className());
-        $this->_processingKeys($pjax);
-        if ($pjax->jsFiles && $this->jsFileCompile) {
+        $this->_processAssetFiles($pjax);
+    }
+
+    public function _processAssetFiles($view) {
+        $view->attachBehavior(AssetsAutoCompressBehavior::className(), AssetsAutoCompressBehavior::className());
+        $this->_processingKeys($view);
+        if ($view->jsFiles && $this->jsFileCompile) {
             \Yii::beginProfile('Compress js files');
-            foreach ($pjax->jsFiles as $pos => $files) {
+            foreach ($view->jsFiles as $pos => $files) {
                 if ($files) {
-                    $pjax->jsFiles[$pos] = $this->_processingJsFiles($files);
+                    $view->jsFiles[$pos] = $this->_processingJsFiles($files);
                 }
             }
             \Yii::endProfile('Compress js files');
         }
 
-        if ($pjax->js && $this->jsCompress) {
+        if ($view->js && $this->jsCompress) {
             \Yii::beginProfile('Compress js code');
-            foreach ($pjax->js as $pos => $parts) {
+            foreach ($view->js as $pos => $parts) {
                 if ($parts) {
-                    $pjax->js[$pos] = $this->_processingJs($parts);
+                    $view->js[$pos] = $this->_processingJs($parts);
                 }
             }
             \Yii::endProfile('Compress js code');
         }
 
 
-        if ($pjax->cssFiles && $this->cssFileCompile) {
+        if ($view->cssFiles && $this->cssFileCompile) {
             \Yii::beginProfile('Compress css files');
-            $pjax->cssFiles = $this->_processingCssFiles($pjax->cssFiles);
+            $view->cssFiles = $this->_processingCssFiles($view->cssFiles);
             \Yii::endProfile('Compress css files');
         }
 
-        if ($pjax->css && $this->cssCompress) {
+        if ($view->css && $this->cssCompress) {
             \Yii::beginProfile('Compress css code');
 
-            $pjax->css = $this->_processingCss($pjax->css);
+            $view->css = $this->_processingCss($view->css);
 
             \Yii::endProfile('Compress css code');
         }
-        if ($pjax->css && $this->cssCompress) {
+        if ($view->css && $this->cssCompress) {
             \Yii::beginProfile('Compress css code');
 
-            $pjax->css = $this->_processingCss($pjax->css);
+            $view->css = $this->_processingCss($view->css);
 
             \Yii::endProfile('Compress css code');
         }
 
 
-        if ($pjax->cssFiles && $this->cssFileBottom) {
+        if ($view->cssFiles && $this->cssFileBottom) {
             \Yii::beginProfile('Moving css files bottom');
 
             if ($this->cssFileBottomLoadOnJs) {
                 \Yii::beginProfile('load css on js');
 
-                $cssFilesString = implode("", $pjax->cssFiles);
-                $pjax->cssFiles = [];
+                $cssFilesString = implode("", $view->cssFiles);
+                $view->cssFiles = [];
 
                 $script = Html::script(new JsExpression(<<<JS
         document.write('{$cssFilesString}');
 JS
                 ));
 
-                if (ArrayHelper::getValue($pjax->jsFiles, View::POS_END)) {
-                    $pjax->jsFiles[View::POS_END] = ArrayHelper::merge($pjax->jsFiles[View::POS_END], [$script]);
+                if (ArrayHelper::getValue($view->jsFiles, View::POS_END)) {
+                    $view->jsFiles[View::POS_END] = ArrayHelper::merge($view->jsFiles[View::POS_END], [$script]);
                 } else {
-                    $pjax->jsFiles[View::POS_END][] = $script;
+                    $view->jsFiles[View::POS_END][] = $script;
                 }
 
                 \Yii::endProfile('load css on js');
             } else {
-                if (ArrayHelper::getValue($pjax->jsFiles, View::POS_END)) {
-                    $pjax->jsFiles[View::POS_END] = ArrayHelper::merge($pjax->cssFiles, $pjax->jsFiles[View::POS_END]);
+                if (ArrayHelper::getValue($view->jsFiles, View::POS_END)) {
+                    $view->jsFiles[View::POS_END] = ArrayHelper::merge($view->cssFiles, $view->jsFiles[View::POS_END]);
                 } else {
-                    $pjax->jsFiles[View::POS_END] = $pjax->cssFiles;
+                    $view->jsFiles[View::POS_END] = $view->cssFiles;
                 }
 
-                $pjax->cssFiles = [];
+                $view->cssFiles = [];
             }
 
             \Yii::endProfile('Moving css files bottom');
         }
     }
-
+    
     public function addControllerToMap($app) {
-        $app->controllerMap = array_merge($this->controllerMap,$app->controllerMap);
+        $app->controllerMap = array_merge([
+            Inflector::camel2id($this->getComponentId()) => [
+                'class' => 'verbi\yii2AssetsAutoCompress\controllers\AssetsAutoCompressController',
+                'componentId' => $this->getComponentId(),
+                'modelClass' => $this->modelClass,
+                ]
+        ],$app->controllerMap);
     }
 }
