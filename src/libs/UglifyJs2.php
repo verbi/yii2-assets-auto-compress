@@ -8,20 +8,42 @@
 namespace verbi\yii2AssetsAutoCompress\libs;
 
 class UglifyJs2 {
-    public function uglify(array $files, $outputFilename, array $options = []) {
+    public static $location = '/vendor/npm/uglify-js/bin/uglifyjs';
+    
+    public function uglify(array $files, array $options = [
+        'compress',
+        'mangle',
+        'mangle-props' => 1
+    ]) {
+        $basePath = \Yii::$app->basePath;
+        //die(\Yii::$app->baseUri);
+        
         foreach($files as $filename) {
+            
             if(!is_readable($filename)) {
-                throw new \Exception("Filename " . $filename . " is not readable");
+                throw new \RuntimeException("Filename '" . $filename . "' is not readable");
             }
         }
-        $safeOutputFilename = escapeshellarg($outputFilename);
-        $optionsString = $this->validateOptions($options);
+        $optionsString = $this->createOptionsString($options);
         $fileNames = implode(' ', array_map('escapeshellarg', $files));
-        $commandString = self::$location . " {$fileNames} --output {$safeOutputFilename} {$optionsString}";
+        $commandString = $basePath.self::$location . " {$fileNames} {$optionsString}";
         exec($commandString, $output, $returnCode);
         if($returnCode !== 0) {
-            throw new UglifyJs2Exception("Failed to run uglifyjs, something went wrong... command: " . $commandString);
+            throw new \RuntimeException("Failed to run uglifyjs, something went wrong... command: " . $commandString);
         }
-        return $output;
+        return implode('',$output);
+    }
+    
+    public function createOptionsString($options) {
+        $str = '';
+        foreach($options as $optionName => $optionValue) {
+            if(is_numeric($optionName)) {
+                $str .= ' --' . $optionValue;
+            }
+            else {
+                $str .= ' --' . $optionName . '=' . is_numeric($optionValue) ? $optionValue : '\'' . addSlashes($optionValue) . '\'';
+            }
+        }
+        return $str;
     }
 }
