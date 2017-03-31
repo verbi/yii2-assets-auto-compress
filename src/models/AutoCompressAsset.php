@@ -10,6 +10,7 @@ use Yii;
  * @property string $type
  * @property string $key
  * @property string $contains
+ * @property string $bundles
  */
 class AutoCompressAsset extends \verbi\yii2ExtendedActiveRecord\db\ActiveRecord
 {
@@ -27,8 +28,8 @@ class AutoCompressAsset extends \verbi\yii2ExtendedActiveRecord\db\ActiveRecord
     public function rules()
     {
         return [
-            [['type', 'key', 'contains'], 'required'],
-            [['contains'], 'string'],
+            [['type', 'key', 'contains', 'bundles'], 'required'],
+            [['contains', 'bundles'], 'string'],
             [['type', 'key'], 'string', 'max' => 255],
         ];
     }
@@ -42,6 +43,7 @@ class AutoCompressAsset extends \verbi\yii2ExtendedActiveRecord\db\ActiveRecord
             'type' => 'Type',
             'key' => 'Key',
             'contains' => 'Contains',
+            'bundles' => 'Bundles',
         ];
     }
 }
