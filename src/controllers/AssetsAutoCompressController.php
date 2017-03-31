@@ -40,6 +40,9 @@ class AssetsAutoCompressController extends Controller {
                 'key' => $key,
                 'type' => $type,
             ]);
+            foreach(json_decode($model->bundles) as $bundleName) {
+                \Yii::$app->getAssetManager()->getBundle($bundleName);
+            }
             $array = array_merge($array,json_decode($model->contains,true));
         }
         return array_diff($array, $ignoreFiles);
@@ -74,7 +77,6 @@ class AssetsAutoCompressController extends Controller {
                 $keys['css'] = $view->cssKeys;
             }
             
-            
             $view->jsFiles = [sizeof($filesToLoad['js'])?array_combine($filesToLoad['js'],$filesToLoad['js']):[]];
             $view->cssFiles = sizeof($filesToLoad['css'])?array_combine($filesToLoad['css'],$filesToLoad['css']):[];
             $component->_processAssetFiles($view);
@@ -92,7 +94,6 @@ class AssetsAutoCompressController extends Controller {
             }
             else{
                 unset($filesToLoad['js']);
-                
             }
             if(sizeof($filesToLoad['css'])) {
                 if(isset($keys['css']) && sizeof($keys['css'])) {
