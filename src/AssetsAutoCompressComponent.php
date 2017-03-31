@@ -15,15 +15,13 @@ use verbi\yii2Helpers\Html;
 use verbi\yii2WebView\web\View;
 use verbi\yii2AssetsAutoCompress\behaviors\AssetsAutoCompressBehavior;
 use verbi\yii2AssetsAutoCompress\assets\PjaxAssetsAutoCompressAsset;
-//use verbi\yii2AssetsAutoCompress\models\AutoCompressAsset;
-use yii\web\Application;
 use yii\web\JsExpression;
 use yii\helpers\Url;
-use yii\helpers\Json;
 use yii\helpers\FileHelper;
 use yii\helpers\ArrayHelper;
 use yii\base\Event;
 use yii\helpers\Inflector;
+use verbi\yii2AssetsAutoCompress\libs\UglifyJs2;
 
 class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoCompressComponent {
     use \verbi\yii2Helpers\traits\ComponentTrait;
@@ -36,7 +34,7 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
      * @var bool
      */
     public $jsFileCompress = true;
-//    public $enabled=false;
+    public $uglify = true;
     
     public function bootstrap($app) {
         if ($app instanceof \yii\web\Application) {
@@ -137,7 +135,6 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
             if ($model !== null) {
                 return $model;
             }
-//            die(print_r($modelClass::find()->where($id),true));
         }
         $model = new $modelClass;
         $model->setAttributes($id);
@@ -160,9 +157,11 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
         if ($this->saveData) {
             $id = $this->getAssetContentId($files, [ 'type' => $type,]);
             $model = $this->loadModel($id);
-            if ($model->isNewrecord) {
+            if ($model->isNewRecord) {
                 $model->contains = \json_encode($files);
-                return $model->save();
+                $bundles = \Yii::$app->getAssetManager()->bundles;
+                $model->bundles = \json_encode(is_array($bundles)?array_keys($bundles):[]);
+                $model->save();
             }
             return true;
         }
@@ -175,16 +174,103 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
     }
 
     protected function _processingJsFiles($files = []) {
+        $fileName   =  md5( implode(array_keys($files)) . $this->getSettingsHash()) . '.js';
+        $publicUrl  = \Yii::getAlias('@web/assets/js-compress/' . $fileName);
+
+        $rootDir    = \Yii::getAlias('@webroot/assets/js-compress');
+        $rootUrl    = $rootDir . '/' . $fileName;
+        
+        $excludedBundles = array_filter(\Yii::$app->getAssetManager()->bundles, function($bundle){
+            return $bundle->hasMethod('getExcludeJs') && $bundle->getExcludeJs();
+            return $bundle instanceOf \verbi\yii2Helpers\traits\assetBundles\ExcludableAssetBundleTrait && $bundle->getExcludeJs();
+        });
+        
+//        $excludedBundleDepends = [];
+//        foreach($excludedBaseBundles as $excludedBundle) {
+//            $excludedBundleDepends = array_merge($excludedBundle->getAllDepends(), $excludedBundleDepends);
+//        }
+//        $excludedBundles = array_merge($excludedBundleDepends, $excludedBaseBundles);
+
+        
+        
+        
+        $am = \Yii::$app->getAssetManager();
+        
+        $excludedFiles = array_filter($files, function($file) use (&$excludedBundles, &$am) {
+            foreach($excludedBundles as $bundle) {
+                //die($bundle->baseUrl.'==='.$file);
+                if ($bundle->baseUrl !== null && strpos($file, $bundle->baseUrl . '/') === 0) {
+                    return true;
+                    $asset = substr($file, strlin($file, $bundle->baseUrl . '/'));
+                    $asset = $bundle->sourcePath . '/' . $asset;
+                }
+            }
+            return false;
+        },ARRAY_FILTER_USE_KEY);
+//        $excludedFiles = [
+//            "/goestingWeb/web/assets/e2bcba80/ckeditor.js" => isset($files["/goestingWeb/web/assets/e2bcba80/ckeditor.js"])?$files["/goestingWeb/web/assets/e2bcba80/ckeditor.js"]:null,
+//        ];
+        
+        $filesDiff = \array_diff_key($files,$excludedFiles);
+        if (!file_exists($rootUrl))
+        {
+            // If the uglifyer throws an exception, just proceed with the original logic
+            try
+            {
+                $uglifyJs2 = new UglifyJs2();
+                $filesToCompile = array_keys($filesDiff);
+                if(!$this->jsFileRemouteCompile) {
+                    $filesToCompile = array_filter($filesToCompile, function($fileCode) {
+//                        die(print_r($fileCode,true));
+                        return Url::isRelative($fileCode);
+                    });
+                }
+                $content = $uglifyJs2->uglify(array_map(function($fileName){
+                    return \Yii::getAlias('@webroot' . substr($fileName, strlen(\Yii::getAlias('@web'))));
+                },$filesToCompile));
+                if(true || $content) {
+                    if (!is_dir($rootDir))
+                    {
+                        if (!FileHelper::createDirectory($rootDir, 0777))
+                        {
+                            $this->saveAssetContent(array_keys($files), 'js');
+                            return $files;
+                        }
+                    }
+                    
+                    // Is this compression still usuful?
+                    if ($this->jsFileCompress)
+                    {
+                        $content = \JShrink\Minifier::minify($content, ['flaggedComments' => $this->jsFileCompressFlaggedComments]);
+                    }
+                    
+                    $file = fopen($rootUrl, "w");
+                    fwrite($file, $content);
+                    fclose($file);
+                    
+                    if (file_exists($rootUrl))
+                    {
+                        $publicUrl                  = $publicUrl . "?v=" . filemtime($rootUrl);
+                        $resultFiles[$publicUrl]    = Html::jsFile($publicUrl, $this->jsOptions);
+                        $this->saveAssetContent(array_keys($files), 'js');
+                        return array_merge($excludedFiles, $resultFiles);
+                    }
+                }
+            }
+            catch(\Exception $e) {
+            }
+        }
+        
         try{
-            $jsFiles = parent::_processingJsFiles($files);
+            $jsFiles = parent::_processingJsFiles($filesDiff);
         }
         catch(\RuntimeException $e) {
             $this->jsFileCompress = false;
-            $jsFiles = parent::_processingJsFiles($files);
+            $jsFiles = parent::_processingJsFiles($filesDiff);
         }
         
         $this->saveAssetContent(array_keys($files), 'js');
-        return $jsFiles;
+        return array_merge($excludedFiles, $jsFiles);
     }
 
     protected function _processingCssFiles($files = []) {
@@ -203,12 +289,9 @@ class AssetsAutoCompressComponent extends \skeeks\yii2\assetsAuto\AssetsAutoComp
             }
             if (sizeof($keys)) {
                 $id = $this->getAssetContentId($keys, [ 'type' => 'js',]);
-//                    if($this->getAssetcontent($id)) {
                 $jsKeys = is_array($view->jsKeys) ? $view->jsKeys : [];
                 $jsKeys = array_merge($jsKeys, [$this->getAssetContentKey($keys)]);
-//                        die(print_r($jsKeys,true));
                 $view->jsKeys = $jsKeys;
-//                    }
             }
         }
         if ($view->cssFiles && $this->cssFileCompile) {
