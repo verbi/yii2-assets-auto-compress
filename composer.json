@@ -20,6 +20,7 @@
 	},
         "require": {
             "npm-asset/uglify-js": "*",
+            "npm-asset/uglify-css": "*",
             "skeeks/yii2-assets-auto-compress": "*"
         },
         "scripts": {
