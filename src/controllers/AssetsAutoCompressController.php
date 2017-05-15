@@ -11,6 +11,9 @@ use yii\rest\Controller;
 use yii\base\InvalidConfigException;
 
 class AssetsAutoCompressController extends Controller {
+    use \verbi\yii2Helpers\traits\ComponentTrait;
+    use \verbi\yii2Helpers\traits\ControllerTrait;
+    
     public $modelClass = '\verbi\yii2AssetsAutoCompress\models\AutoCompressAsset';
     public $componentId;
 
