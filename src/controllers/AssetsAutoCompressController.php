@@ -80,8 +80,8 @@ class AssetsAutoCompressController extends Controller {
                 $keys['css'] = $view->cssKeys;
             }
             
-            $view->jsFiles = [sizeof($filesToLoad['js'])?array_combine($filesToLoad['js'],$filesToLoad['js']):[]];
-            $view->cssFiles = sizeof($filesToLoad['css'])?array_combine($filesToLoad['css'],$filesToLoad['css']):[];
+            $view->jsFiles = [isset($filesToLoad['js']) && sizeof($filesToLoad['js'])?array_combine($filesToLoad['js'],$filesToLoad['js']):[]];
+            $view->cssFiles = isset($filesToLoad['css']) && sizeof($filesToLoad['css'])?array_combine($filesToLoad['css'],$filesToLoad['css']):[];
             $component->_processAssetFiles($view);
             
             $jsFiles = [];
