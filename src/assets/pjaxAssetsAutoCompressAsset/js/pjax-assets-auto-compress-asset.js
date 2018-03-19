@@ -59,8 +59,8 @@ function pjaxAssetsAutoCompressAssetLoad() {
 
     pjaxDynamicScriptLoader.pjaxPjaxEndKeysEvent = function (e) {
         try {
-
-            $(e.target).find('.js-pjax-scripts').each(function (index, element) {
+            var $target = $(e.target);
+            $target.find('.js-pjax-scripts').each(function (index, element) {
 
                 var positions = JSON.parse($(element).html());
 
@@ -129,6 +129,7 @@ function pjaxAssetsAutoCompressAssetLoad() {
                 }
 
             });
+            $target.find('form input[type=text]:visible:first').focus();
         }
         catch (e) {
             console.log(e);
