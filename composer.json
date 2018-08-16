@@ -19,8 +19,8 @@
 		}
 	},
         "require": {
-            
-            "skeeks/yii2-assets-auto-compress": "*",
+            "npm-asset/uglify-js": "*",
+            "npm-asset/uglifycss": "*",
             "verbi/yii2-helpers": "*"
         },
         "scripts": {
