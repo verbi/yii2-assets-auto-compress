@@ -21,6 +21,7 @@
         "require": {
             "npm-asset/uglify-js": "*",
             "npm-asset/uglifycss": "*",
+            "skeeks/yii2-assets-auto-compress": "*",
             "verbi/yii2-helpers": "*"
         },
         "scripts": {
